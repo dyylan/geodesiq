@@ -1,3 +1,7 @@
+test.py
+.DS_Store
+circuit_graphs/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
