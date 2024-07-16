@@ -165,7 +165,8 @@ class Optimizer:
 
         if fidelity_new_phi > self.precision:
             print(
-                f"[{step_count[0]}/{step_count[1]}] [Fidelity = {fidelity_new_phi}] A solution!                                                                     ")
+                f"[{step_count[0]}/{step_count[1]}] [Fidelity = {fidelity_new_phi}] A solution!                                                                     ",
+                end="\r")
         elif (fidelity_new_phi > fidelity_phi) and not np.isclose(fidelity_new_phi, fidelity_phi, atol=(1 - self.precision) / 100):
             print(
                 f"[{step_count[0]}/{step_count[1]}] [Fidelity = {fidelity_new_phi}] Omega geodesic gave a positive fidelity update for this step...                 ",

@@ -63,13 +63,22 @@ class Compiler:
         self.gates = self.circuit.data
         self.graph = Compiler.build_graph_from_circuit(self.circuit)
     
-    def draw_graph(self) -> None:
+    def draw_graph(self, filename : str) -> None:
+        def node_label(node):
+            if self.is_instruction_a_gate(node):
+                return node.operation.name
+            else:
+                return node
+
         rx.visualization.graphviz_draw(
             self.graph,
-            node_attr_fn=lambda node: {"label": str(node)},
+            node_attr_fn=lambda node: {"label": str(node_label(node))},
             edge_attr_fn=lambda edge: {"label": str(edge)},
-            filename="circuit_graphs/circuit_graph_test.png"
+            filename=filename
         )
+
+    def draw_circuit(self, filename : str) -> None:
+        self.circuit.draw(output="mpl", filename=filename)
 
     def compile(self) -> qiskit.circuit.QuantumCircuit:
         """
@@ -77,39 +86,44 @@ class Compiler:
         """
         fusing = True
         node = 2 * len(self.qubits)
+        nodes = list(range(2 * len(self.qubits), len(self.graph.nodes())))
         while fusing:
             is_fused = False
+            node = nodes[0]
             next_nodes = self.graph.adj_direction(node, False)
             for next_node in next_nodes:
-                self.graph
                 if Compiler.is_instruction_a_gate(self.graph.get_node_data(next_node)):
                     paths = rx.all_simple_paths(self.graph, node, next_node)
-                    if len(paths) == 1:
+                    if all([len(p) == 2 for p in paths]):
                         circ_instr, is_fused = self._fuse_gates([node, next_node])
                         if is_fused:
-                            print("Contracting nodes with gates " 
+                            print(f"Contracting nodes {node} and {next_node} with gates " 
                                   f"{self.graph.get_node_data(node).operation.name} and "
-                                  f"{self.graph.get_node_data(next_node).operation.name}")
+                                  f"{self.graph.get_node_data(next_node).operation.name}.")
                             new_node = self.graph.contract_nodes([node, next_node], circ_instr)
-                        break 
-            if is_fused:
-                node = new_node
-            else:
-                node += 1 
-            if node == len(self.graph.nodes()):
+                            nodes.remove(next_node)
+                            nodes[0] = new_node
+                            break 
+            if not is_fused:
+                nodes.pop(0)
+            if not len(nodes):
                 fusing = False
 
-        self.circuit = Compiler.build_circuit_from_graph(self.graph)
+        self.circuit = Compiler.build_circuit_from_graph(self.graph, self.circuit.qubits)
         self.qubits = Compiler.get_qubits(self.circuit)
         self.gates = self.circuit.data
-
+        return self.circuit
+    
     def _fuse_gates(self, nodes: List[int]) -> bool:
         circ = qiskit.circuit.QuantumCircuit.from_instructions([self.graph.get_node_data(node) for node in nodes])
         operation = qiskit.quantum_info.Operator.from_circuit(circ)
         opt = optimizer.Optimizer(target_unitary=operation.data, 
                         full_basis=utils.construct_full_pauli_basis(operation.num_qubits),
-                        projected_basis=utils.construct_Heisenberg_pauli_basis(operation.num_qubits),
-                        commute=False
+                        projected_basis=utils.construct_two_body_pauli_basis(operation.num_qubits),
+                        commute=False,
+                        max_steps=1000,
+                        max_step_size=0.6,
+                        gram_schmidt_step_size=1.3,
                         )
         if opt.is_succesful:
             gate_num = self._add_optimized_gate_parameter(opt.parameters[-1])
@@ -161,13 +175,16 @@ class Compiler:
         return graph
 
     @staticmethod
-    def build_circuit_from_graph(graph: rx.PyDAG) -> qiskit.circuit.QuantumCircuit:
+    def build_circuit_from_graph(graph: rx.PyDAG, qubits: qiskit.circuit.Qubit) -> qiskit.circuit.QuantumCircuit:
         instructions = [node for node in graph.nodes() if issubclass(type(node), qiskit.circuit.CircuitInstruction)]
-        return qiskit.circuit.QuantumCircuit.from_instructions(instructions)
+        return qiskit.circuit.QuantumCircuit.from_instructions(instructions, qubits=qubits)
         
     @staticmethod
-    def is_instruction_a_gate(instruction: qiskit.circuit.Instruction) -> bool:
-        return issubclass(instruction.operation.base_class, qiskit.circuit.Gate)
+    def is_instruction_a_gate(instruction: qiskit.circuit.Instruction | str) -> bool:
+        if type(instruction) is str: 
+            return False
+        else:
+            return issubclass(instruction.operation.base_class, qiskit.circuit.Gate)
     
     @staticmethod
     def is_circuit_only_gates(circuit: qiskit.circuit.QuantumCircuit) -> bool:
