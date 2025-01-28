@@ -1,4 +1,5 @@
 test.py
+*.ipynb
 .DS_Store
 circuit_graphs/
 

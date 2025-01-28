@@ -15,6 +15,7 @@ class Basis:
         self._labels = labels
         self._local_dim = local_dim
         self._dim = basis.shape[1]
+        self._lie_algebra_dim = basis.shape[0]
         self._n = int(np.log2(basis.shape[1]))
         assert self._n
 
@@ -50,6 +51,10 @@ class Basis:
     def dim(self):
         return self._dim
 
+    @property
+    def lie_algebra_dim(self):
+        return self._lie_algebra_dim
+    
     @property
     def shape(self):
         return self._basis.shape
@@ -167,7 +172,7 @@ class Unitary:
     def __init__(self, unitary):
         self.matrix, self.n = self._check_is_unitary(unitary)
 
-    def parameters(self):
+    def parameters(self, basis):
         """
         Calculate parameters from the unitary using the principal logarithm.
 
@@ -178,7 +183,7 @@ class Unitary:
         -------
 
         """
-        pass
+        return Unitary.parameters_from_unitary(self.matrix, basis)
 
     def _check_is_unitary(unitary):
         if not np.allclose(np.eye(len(unitary)), unitary @ unitary.T.conj()):
@@ -191,3 +196,22 @@ class Unitary:
     @njit
     def unitary_fidelity(unitary1, unitary2):
         return np.abs(np.trace(unitary1.conj().T @ unitary2)) / len(unitary1[0])
+    
+    @staticmethod
+    def parameters_from_unitary(unitary, basis):
+        """
+        Returns the parameters from a unitary.
+
+        Parameters
+        ----------
+        unitary : np.ndarray
+            The unitary for which we want to find the parameters.
+        basis: gnd.Basis
+            The basis to find the parameters in.
+
+        Returns
+        -------
+        np.array
+            Parameters vector.
+        """
+        return Hamiltonian.parameters_from_hamiltonian(-1.j * spla.logm(unitary), basis)

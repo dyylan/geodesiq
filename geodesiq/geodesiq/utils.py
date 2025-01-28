@@ -62,6 +62,24 @@ def check_Heisenberg_comb(comb):
     return True
 
 
+def check_2_local_comb(comb):
+    if len(np.nonzero(comb)[0]) == 1:
+        return True
+    elif len(np.nonzero(comb)[0]) > 2:
+        return False
+    else:
+        return True
+
+
+def restriction_function(restriction):
+    mapping = {'x': 1, 'y': 2, 'z': 3}
+    restriction_int = [sorted([mapping[char] for char in res if char in mapping]) for res in restriction]
+    def check(comb):
+        sorted_comb = sorted([c for c in comb if c != 0])
+        return sorted_comb in restriction_int
+    return check 
+
+
 def construct_restricted_pauli_basis(n: int, restriction):
     I = np.eye(2).astype(complex)
     X = np.array([[0, 1], [1, 0]], complex)
@@ -69,6 +87,8 @@ def construct_restricted_pauli_basis(n: int, restriction):
     Z = np.array([[1, 0], [0, -1]], complex)
     b = []
     l = []
+    if type(restriction) is list:
+        restriction = restriction_function(restriction) 
     for comb in list(it.product([0, 1, 2, 3], repeat=n))[1:]:
         p = 1.
         s = ''
@@ -90,6 +110,35 @@ def construct_restricted_pauli_basis(n: int, restriction):
             l.append(s)
 
     return lie.Basis(np.stack(b), labels=l)
+
+# def construct_restricted_pauli_basis(n: int, restriction):
+#     I = np.eye(2).astype(complex)
+#     X = np.array([[0, 1], [1, 0]], complex)
+#     Y = np.array([[0, -1j], [1j, 0]], complex)
+#     Z = np.array([[1, 0], [0, -1]], complex)
+#     b = []
+#     l = []
+#     for comb in list(it.product([0, 1, 2, 3], repeat=n))[1:]:
+#         p = 1.
+#         s = ''
+#         if restriction(comb):
+#             for c in comb:
+#                 if c == 0:
+#                     p = np.kron(p, I)
+#                     s += 'I' 
+#                 elif c == 1:
+#                     p = np.kron(p, X)
+#                     s += 'X' 
+#                 elif c == 2:
+#                     p = np.kron(p, Y)
+#                     s += 'Y' 
+#                 elif c == 3:
+#                     p = np.kron(p, Z)
+#                     s += 'Z' 
+#             b.append(p)
+#             l.append(s)
+
+#     return lie.Basis(np.stack(b), labels=l)
 
 
 def construct_Heisenberg_pauli_basis(n: int):
